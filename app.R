@@ -1,5 +1,11 @@
 library(shiny)
 
+columnNameInput <- function(inputNumber, inputType) {
+  conditionalPanel(condition = paste0('input.numTiers > ', (inputNumber - 1)),
+    numericInput(paste0('column', inputType, inputNumber), paste('Which Column is Tier', inputNumber, inputType, sep = ' '), 0, min = 1, max = 30, step = 1)
+  )
+}
+
 ui <- fluidPage(#theme = 'mintyTheme.css',
   titlePanel('Area Hierarchy Creation'),
   
@@ -14,123 +20,37 @@ ui <- fluidPage(#theme = 'mintyTheme.css',
                    ".csv")
       ),
       
-      numericInput(
-        'numTiers',
-        'Number of Tiers',
-        5,
-        min = 1,
-        max = 6,
-        step = 1
-      ),
+      sliderInput('numTiers', 'Number of Tiers', 3, min = 1, max = 6, step = 1),
+
+      
+      
+      
       column(6,
-        numericInput(
-          'columnName1',
-          'Which Column is Tier 1 Name',
-          1,
-          min = 1,
-          max = 30, 
-          step = 1
-        ),
+        columnNameInput(1, 'Name'),
         
-        numericInput(
-          'columnName2',
-          'Which Column is Tier 2 Name',
-          1,
-          min = 1,
-          max = 30, 
-          step = 1
-        ),
+        columnNameInput(2, 'Name'),
         
-        numericInput(
-          'columnName3',
-          'Which Column is Tier 3 Name',
-          1,
-          min = 1,
-          max = 30, 
-          step = 1
-        ),
+        columnNameInput(3, 'Name'),
         
-        numericInput(
-          'columnName4',
-          'Which Column is Tier 4 Name',
-          1,
-          min = 1,
-          max = 30, 
-          step = 1
-        ),
+        columnNameInput(4, 'Name'),
         
-        numericInput(
-          'columnName5',
-          'Which Column is Tier 5 Name',
-          1,
-          min = 1,
-          max = 30, 
-          step = 1
-        ),
+        columnNameInput(5, 'Name'),
         
-        numericInput(
-          'columnName6',
-          'Which Column is Tier 6 Name',
-          1,
-          min = 1,
-          max = 30, 
-          step = 1
-        )
+        columnNameInput(6, 'Name')
       ),
+      
       column(6,
-         numericInput(
-           'columnShortName1',
-           'Which Column is Tier 1 Short Name',
-           1,
-           min = 1,
-           max = 30, 
-           step = 1
-         ),
-         
-         numericInput(
-           'columnShortName2',
-           'Which Column is Tier 2 Short Name',
-           1,
-           min = 1,
-           max = 30, 
-           step = 1
-         ),
-         
-         numericInput(
-           'columnShortName3',
-           'Which Column is Tier 3 Short Name',
-           1,
-           min = 1,
-           max = 30, 
-           step = 1
-         ),
-         
-         numericInput(
-           'columnShortName4',
-           'Which Column is Tier 4 Short Name',
-           1,
-           min = 1,
-           max = 30, 
-           step = 1
-         ),
-         
-         numericInput(
-           'columnShortName5',
-           'Which Column is Tier 5 Short Name',
-           1,
-           min = 1,
-           max = 30, 
-           step = 1
-         ),
-         
-         numericInput(
-           'columnShortName6',
-           'Which Column is Tier 6 Short Name',
-           1,
-           min = 1,
-           max = 30, 
-           step = 1
-         )
+        columnNameInput(1, 'ShortName'),
+        
+        columnNameInput(2, 'ShortName'),
+        
+        columnNameInput(3, 'ShortName'),
+        
+        columnNameInput(4, 'ShortName'),
+        
+        columnNameInput(5, 'ShortName'),
+        
+        columnNameInput(6, 'ShortName')
       )
     ),
     
@@ -149,17 +69,20 @@ ui <- fluidPage(#theme = 'mintyTheme.css',
 
 server <- function(input, output) {
   
-  rawData <- reactive({
-    infile <- input$baseData
+  rawSourceData <- reactive({
+    sourceData <- input$baseData
     
-    if(is.null(infile))
+    if(is.null(sourceData))
       return(NULL)
     
-    read.csv(infile$datapath, header = TRUE, fileEncoding="UTF-8-BOM")
+    read.csv(sourceData$datapath, header = TRUE, fileEncoding="UTF-8-BOM")
   })
   
   output$originalTable <- renderTable({
-    rawData()
+    if(input$columnName1 == 0)
+      return(rawSourceData())
+    
+    rawSourceData()[,input$columnName1]
   })
 }
 
