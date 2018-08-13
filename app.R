@@ -1,4 +1,5 @@
 library(shiny)
+library(dplyr)
 
 columnNameInput <- function(inputNumber, inputType) {
   conditionalPanel(condition = paste0('input.numTiers > ', (inputNumber - 1)),
@@ -20,7 +21,7 @@ ui <- fluidPage(#theme = 'mintyTheme.css',
                    ".csv")
       ),
       
-      sliderInput('numTiers', 'Number of Tiers', 3, min = 1, max = 6, step = 1),
+      sliderInput('numTiers', 'Number of Tiers', 1, min = 1, max = 6, step = 1),
 
       
       
@@ -78,11 +79,37 @@ server <- function(input, output) {
     read.csv(sourceData$datapath, header = TRUE, fileEncoding="UTF-8-BOM")
   })
   
-  output$originalTable <- renderTable({
+  tier1 <- reactive({
     if(input$columnName1 == 0)
       return(rawSourceData())
     
-    rawSourceData()[,input$columnName1]
+    name <- if(input$columnName1 != 0) 
+      data.frame(levels(rawSourceData()[,input$columnName1]))
+    
+    shortName <- if(input$columnShortName1 != 0) {
+      data.frame(levels(rawSourceData()[,input$columnShortName1]))
+    } else {
+      name
+    }
+
+    tier1Comb <- cbind(name, shortName)
+    
+    names(tier1Comb) <- c('Name', 'ShortName')
+    
+    data.frame(tier1Comb) %>%
+      mutate(Parent = 0) %>%
+      mutate(id = (row_number()))
+  })
+  
+  tier2 <- reactive({
+
+    
+  })
+  
+  output$originalTable <- renderTable({
+    
+    tier1()
+    
   })
 }
 
