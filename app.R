@@ -58,10 +58,12 @@ ui <- fluidPage(#theme = 'mintyTheme.css',
     mainPanel(
       tabsetPanel(
         tabPanel('Input',
-          tableOutput('originalTable')
+          tableOutput('sourceTable')
         ),
                           
-        tabPanel('Output')
+        tabPanel('Output',
+          tableOutput('finalTable')
+                 )
       )
     )
   )
@@ -84,10 +86,12 @@ server <- function(input, output) {
       return(rawSourceData())
     
     name <- if(input$columnName1 != 0) 
-      data.frame(levels(rawSourceData()[,input$columnName1]))
+      #data.frame(levels(rawSourceData()[,input$columnName1]))
+      unique(select(rawSourceData(), input$columnName1))
     
     shortName <- if(input$columnShortName1 != 0) {
-      data.frame(levels(rawSourceData()[,input$columnShortName1]))
+      #data.frame(levels(rawSourceData()[,input$columnShortName1]))
+      unique(select(rawSourceData(), input$columnShortName1))
     } else {
       name
     }
@@ -98,18 +102,91 @@ server <- function(input, output) {
     
     data.frame(tier1Comb) %>%
       mutate(Parent = 0) %>%
-      mutate(id = (row_number()))
+      arrange(Parent, Name) %>%
+      mutate(id = (row_number())) 
+      
   })
   
   tier2 <- reactive({
-
+    if(input$columnName2 == 0)
+      return(tier1())
     
+    name <- if(input$columnName2 != 0) 
+      #data.frame(levels(rawSourceData()[,input$columnName2]))
+      unique(select(rawSourceData(), c(input$columnName2, input$columnName1)))
+    
+    shortName <- if(input$columnShortName2 != 0) {
+      #data.frame(levels(rawSourceData()[,input$columnShortName2]))
+      unique(select(rawSourceData(), input$columnShortName2))
+    } else {
+      name[1]
+    }
+    
+    
+    
+    tier2Comb <- cbind(name, shortName)
+    
+    names(tier2Comb) <- c('Name', 'ParentName', 'ShortNameInt')
+    
+    tier2Comb %>%
+      inner_join(tier1(), by = c('ParentName' = 'Name')) %>%
+      select(Name, ShortNameInt, id) %>%
+      rename(ShortName = ShortNameInt, Parent = id) %>%
+      arrange(Parent, Name) %>%
+      mutate(id = (row_number() + max(tier1()$id)))
+      
   })
   
-  output$originalTable <- renderTable({
+  output$finalTable <- renderTable({
+    combinedTiers <- if(input$numTiers == 1){
+      tier1()
+    } else if(input$numTiers == 2) {
+      rbind(tier1(), tier2())
+    }
     
-    tier1()
+    #Pre-allocate the appropriate columns for the below loop to fill
+    combinedTiers <- combinedTiers %>%
+      mutate(parentId = 0) %>%
+      mutate(parentNum = 0) %>%
+      mutate(futureId = 0)
     
+    #set an out of bounds var as the starting point for one of the loops
+    prevParent <- 10000
+
+    for(i in combinedTiers$id) {
+      currParent <- combinedTiers[i,3]
+
+      #Determine if the previous parent is equivalent to this columns one
+      if(currParent == prevParent) {
+        parentNum = parentNum + 1
+      } else {
+        parentNum = 1
+      }
+
+      #add parentnum to $parentNum
+      combinedTiers[i,6] <- parentNum
+
+      #Update prevparent
+      prevParent <- currParent
+
+      if(combinedTiers[i,3] == 0) {
+        parentId = 'a'
+      } else {
+        parentId = combinedTiers[combinedTiers[i,3],7]
+      }
+
+      combinedTiers[i,5] <- parentId
+
+      combinedTiers[i,7] <- paste(parentId, parentNum, sep = ".")
+
+    }
+    
+    combinedTiers %>%
+      select(Name, ShortName, Parent, futureId)
+  })
+  
+  output$sourceTable <- renderTable({
+    rawSourceData()
   })
 }
 
