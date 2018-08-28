@@ -24,8 +24,6 @@ ui <- fluidPage(#theme = 'mintyTheme.css',
       sliderInput('numTiers', 'Number of Tiers', 1, min = 1, max = 6, step = 1),
 
       
-      
-      
       column(6,
         columnNameInput(1, 'Name'),
         
@@ -68,7 +66,7 @@ ui <- fluidPage(#theme = 'mintyTheme.css',
     )
   )
 )
-
+ #test
 
 server <- function(input, output) {
   
@@ -86,11 +84,9 @@ server <- function(input, output) {
       return(rawSourceData())
     
     name <- if(input$columnName1 != 0) 
-      #data.frame(levels(rawSourceData()[,input$columnName1]))
       unique(select(rawSourceData(), input$columnName1))
     
     shortName <- if(input$columnShortName1 != 0) {
-      #data.frame(levels(rawSourceData()[,input$columnShortName1]))
       unique(select(rawSourceData(), input$columnShortName1))
     } else {
       name
@@ -111,12 +107,12 @@ server <- function(input, output) {
     if(input$columnName2 == 0)
       return(tier1())
     
+    #returns the column of this tiers name and the previous in order to get the appropriate parent
     name <- if(input$columnName2 != 0) 
-      #data.frame(levels(rawSourceData()[,input$columnName2]))
       unique(select(rawSourceData(), c(input$columnName2, input$columnName1)))
     
+    
     shortName <- if(input$columnShortName2 != 0) {
-      #data.frame(levels(rawSourceData()[,input$columnShortName2]))
       unique(select(rawSourceData(), input$columnShortName2))
     } else {
       name[1]
@@ -128,6 +124,7 @@ server <- function(input, output) {
     
     names(tier2Comb) <- c('Name', 'ParentName', 'ShortNameInt')
     
+    #Combine with tier1 to get the appropriate parent
     tier2Comb %>%
       inner_join(tier1(), by = c('ParentName' = 'Name')) %>%
       select(Name, ShortNameInt, id) %>%
@@ -136,6 +133,8 @@ server <- function(input, output) {
       mutate(id = (row_number() + max(tier1()$id)))
       
   })
+  
+
   
   output$finalTable <- renderTable({
     combinedTiers <- if(input$numTiers == 1){
@@ -181,12 +180,14 @@ server <- function(input, output) {
 
     }
     
+    #Select the non-backend columns which are required for data input to show in the final table
     combinedTiers %>%
-      select(Name, ShortName, Parent, futureId)
+      select(Name, ShortName, parentId, futureId)
   })
   
   output$sourceTable <- renderTable({
     rawSourceData()
+    # tier3()
   })
 }
 
