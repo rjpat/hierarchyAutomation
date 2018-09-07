@@ -2,10 +2,9 @@ library(dplyr)
 
 setwd("~/Documents/HierarchyAutomation")
 
-data <- read.csv('AreaHierarchyExample2.csv', encoding = 'UTF-8', header =  TRUE, na.strings = c("", "NA"))
+data <- read.csv('AreaHierarchyExample.csv', encoding = 'UTF-8', header =  TRUE, na.strings = c("", "NA"))
 
 data <- data %>%
-  rename(Location = X.U.FEFF.Location) %>%
   mutate(parent0 = 'a')
 
 
