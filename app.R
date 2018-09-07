@@ -76,118 +76,108 @@ server <- function(input, output) {
     if(is.null(sourceData))
       return(NULL)
     
-    read.csv(sourceData$datapath, header = TRUE, fileEncoding="UTF-8-BOM")
+    read.csv(sourceData$datapath, header = TRUE, fileEncoding="UTF-8-BOM", na.strings = c("", "NA"))
   })
   
-  tier1 <- reactive({
-    if(input$columnName1 == 0)
-      return(rawSourceData())
-    
-    name <- if(input$columnName1 != 0) 
-      unique(select(rawSourceData(), input$columnName1))
-    
-    shortName <- if(input$columnShortName1 != 0) {
-      unique(select(rawSourceData(), input$columnShortName1))
-    } else {
-      name
-    }
 
-    tier1Comb <- cbind(name, shortName)
+  
+  final <- reactive({
+    loadFrame <- setNames(data.frame(matrix(ncol = 4, nrow = 0)), c('name', 'shortName', 'parent', 'futureId'))
     
-    names(tier1Comb) <- c('Name', 'ShortName')
+    data <- rawSourceData() %>%
+      mutate(parent0 = 'a')
     
-    data.frame(tier1Comb) %>%
-      mutate(Parent = 0) %>%
-      arrange(Parent, Name) %>%
-      mutate(id = (row_number())) 
+    tierLoops <- function(tierName, tierShort, tierNum) {
       
-  })
-  
-  tier2 <- reactive({
-    if(input$columnName2 == 0)
-      return(tier1())
-    
-    #returns the column of this tiers name and the previous in order to get the appropriate parent
-    name <- if(input$columnName2 != 0) 
-      unique(select(rawSourceData(), c(input$columnName2, input$columnName1)))
-    
-    
-    shortName <- if(input$columnShortName2 != 0) {
-      unique(select(rawSourceData(), input$columnShortName2))
-    } else {
-      name[1]
-    }
-    
-    
-    
-    tier2Comb <- cbind(name, shortName)
-    
-    names(tier2Comb) <- c('Name', 'ParentName', 'ShortNameInt')
-    
-    #Combine with tier1 to get the appropriate parent
-    tier2Comb %>%
-      inner_join(tier1(), by = c('ParentName' = 'Name')) %>%
-      select(Name, ShortNameInt, id) %>%
-      rename(ShortName = ShortNameInt, Parent = id) %>%
-      arrange(Parent, Name) %>%
-      mutate(id = (row_number() + max(tier1()$id)))
+      #'Intermediate produced here to remove any issues of shortname not being assigned. 
+      #'If there is no designated shortname then the name is duplicated in the main table and assigned as short.
+      #'The reason for duplication is to prevent a select issue where you cannot select the same column multiple times
+      tierShortInt <- if(tierShort == 0) {
+        data <- data %>%
+          bind_cols(data[tierName])
+        
+        tierShort <- ncol(data)
+      } else {
+        tierShort
+      }
       
-  })
-  
-
-  
-  output$finalTable <- renderTable({
-    combinedTiers <- if(input$numTiers == 1){
-      tier1()
-    } else if(input$numTiers == 2) {
-      rbind(tier1(), tier2())
+      prevDataParent <- paste0('parent', tierNum-1)
+      
+      cleansed <- data %>%
+        select(tierName, tierShort, prevDataParent) %>%
+        unique() %>%
+        rename('name' = !!names(.[1]), 
+               'shortName' = !!names(.[2]), 
+               'parent' = !!names(.[3])) %>%
+        #Removes any rows with an na name or parent (where previous tier had an na name)
+        filter(!is.na(name)) %>%
+        filter(!is.na(parent)) %>%
+        #Arranges the data in the correct order then adds the additional background columns required for producing the hierarchy
+        arrange(parent, name, shortName) %>%
+        mutate(shortName = trimws(substring(shortName, 1, 25)), 
+               id = row_number(), 
+               parentNum = 0, 
+               futureId = 0) 
+      
+      prevParent <- 0
+      
+      #Produces the area hierarchy details through the loop
+      for(i in cleansed$id) {
+        currParent <- cleansed[i, 3]
+        
+        if(currParent == prevParent) {
+          parentNum = parentNum + 1
+        } else {
+          parentNum = 1 
+        }
+        
+        cleansed[i, 5] <- parentNum
+        
+        cleansed[i, 6] <- paste0(currParent, '.', parentNum)
+        
+        prevParent = currParent
+      }
+      
+      #removes non-necessary columns
+      cleansedPrep <<- cleansed %>%
+        select(name, shortName, parent, futureId)
+      
+      #Creates the loading dataframe to be utilised at the end
+      loadFrame <<- rbind(loadFrame, cleansedPrep)
+      
+      #Prep and join the data back to the original dataset allowing for the function to be called again
+      cleansedPrep2 <- cleansedPrep %>%
+        select(name, parent, futureId) 
+      
+      named <- colnames(data[tierName])
+      named2 <- colnames(data[prevDataParent])
+      
+      data <<- data %>%
+        left_join(cleansedPrep2, by = c(setNames('name', named), setNames('parent', named2))) %>%
+        rename(!!paste0('parent', tierNum) := futureId)
+    
+      return(loadFrame)
     }
     
-    #Pre-allocate the appropriate columns for the below loop to fill
-    combinedTiers <- combinedTiers %>%
-      mutate(parentId = 0) %>%
-      mutate(parentNum = 0) %>%
-      mutate(futureId = 0)
-    
-    #set an out of bounds var as the starting point for one of the loops
-    prevParent <- 10000
+    for(i in 1:(max(input$numTiers))) {
+      a <- eval(parse(text = (paste0('input$column', 'Name', i))))
 
-    for(i in combinedTiers$id) {
-      currParent <- combinedTiers[i,3]
+      b <- eval(parse(text = (paste0('input$column', 'ShortName', i))))
 
-      #Determine if the previous parent is equivalent to this columns one
-      if(currParent == prevParent) {
-        parentNum = parentNum + 1
-      } else {
-        parentNum = 1
-      }
-
-      #add parentnum to $parentNum
-      combinedTiers[i,6] <- parentNum
-
-      #Update prevparent
-      prevParent <- currParent
-
-      if(combinedTiers[i,3] == 0) {
-        parentId = 'a'
-      } else {
-        parentId = combinedTiers[combinedTiers[i,3],7]
-      }
-
-      combinedTiers[i,5] <- parentId
-
-      combinedTiers[i,7] <- paste(parentId, parentNum, sep = ".")
-
+      tierLoops(a, b, i)
     }
     
-    #Select the non-backend columns which are required for data input to show in the final table
-    combinedTiers %>%
-      select(Name, ShortName, parentId, futureId)
+    loadFrame
   })
+
   
   output$sourceTable <- renderTable({
     rawSourceData()
     # tier3()
+  })
+  
+  output$finalTable <- renderTable({
+    final()
   })
 }
 
