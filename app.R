@@ -22,21 +22,11 @@ ui <- fluidPage(#theme = 'mintyTheme.css',
                    "text/comma-separated-values,text/plain",
                    ".csv")
       ),
-      
-      # column(6, radioButtons('outRadio', label = h6('Which Output'),
-      #                     choices = list('Altered' = 1, 'Raw' = 2),
-      #                     selected = 1,
-      #                     inline = TRUE)),
-      # column(6, downloadButton('downloadOut', 'Download Output')),
 
       sliderInput('numTiers', 'Number of Tiers', 1, min = 1, max = 6, step = 1),
 
       
       column(6,
-        # radioButtons('outRadio', label = h6('Which Output'),
-        #              choices = list('Altered' = 1, 'Raw' = 2), 
-        #              selected = 1,
-        #              inline = TRUE),
              
         columnNameInput(1, 'Name'),
         
@@ -52,7 +42,6 @@ ui <- fluidPage(#theme = 'mintyTheme.css',
       ),
       
       column(6,
-        # downloadButton('downloadOut', 'Download Output'),
         
         columnNameInput(1, 'ShortName'),
         
